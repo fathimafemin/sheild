@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   runApp(MyApp());
@@ -25,10 +27,26 @@ class _MyAppState extends State<MyApp> {
     _speech = stt.SpeechToText();
   }
 
-  void _startListening() async {
+static const platform = MethodChannel('com.example.sheild/call');
+
+ Future<void> _makeCall(String number) async {
+  print("Attempting to call: $number"); // Debugging line
+
+  try {
+    await platform.invokeMethod('makeCall', {"number": number});
+  } on PlatformException catch (e) {
+    print("Error making call: ${e.message}");
+  }
+}
+void _startListening() async {
+    _makeCall("9645667147");
+  var micPermission = await Permission.microphone.request();
+  var locationPermission = await Permission.location.request();
+  if (micPermission.isGranted && locationPermission.isGranted) {
     bool available = await _speech.initialize(
       onStatus: (status) => print('Speech Status: $status'),
-      onError: (error) => print('Speech Error: $error'),
+      onError: (error) => print('Speech Error: ${error.errorMsg}'),
+      finalTimeout: Duration(days: 1),
     );
     if (available) {
       setState(() => _isListening = true);
@@ -39,7 +57,11 @@ class _MyAppState extends State<MyApp> {
         }
       });
     }
+  } else {
+    print("Permissions not granted!");
   }
+}
+
 
   void _sendEmergencyAlert() async {
     Position position = await Geolocator.getCurrentPosition(
@@ -57,10 +79,8 @@ class _MyAppState extends State<MyApp> {
       await launch(whatsappUrl);
     }
 
-    String telUrl = "tel:9645667147";
-    if (await canLaunch(telUrl)) {
-      await launch(telUrl);
-    }
+    String tel = "9645667147";
+    _makeCall(tel);
   }
 
   @override
